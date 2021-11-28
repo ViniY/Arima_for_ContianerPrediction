@@ -38,7 +38,7 @@ public class arima {
     public int forecastSize = 1;
     public double maxDay;
     public double minDay;
-    public arima(int q, int d, int p, String path, int days, int hours){ // window is representing the time gap
+    public arima(int q, int d, int p, String path){ // window is representing the time gap
         this.p = p;
         this.q = q;
         this.d = d;
@@ -164,15 +164,7 @@ public class arima {
 
                 }
             }
-            else {// changed to the next day
-//                if(currentHour == 23){ // the previous day reach the end
-//                    data.add((ArrayList<Double>) dataOneHour.clone());//add the data from the last hour of previous day
-//                    dataOneHour.clear();
-//                    currentDay = this.day.get(i);
-//                    currentHour = this.hour.get(i);
-//                    continue;
-//                }
-//                else{
+            else {
                     data.add((ArrayList<Double>) dataOneHour.clone());
                     int zeroToInsert = 0;
                     zeroToInsert = (int) ((this.day.get(i) *24 - currentDay* 24 )+ (this.hour.get(i) - currentHour))-1;
@@ -192,38 +184,7 @@ public class arima {
         return data;
     }
 
-    /***
-     * This function can be used for read the csv consist the mean value for each hour
-     * (not used)
-     */
 
-    public ArrayList<Double[]> readMean (String fp){
-        ArrayList<Double[]> readData =new ArrayList<>();
-        try
-        {
-            File file=new File(fp);    //creates a new file instance
-            FileReader fr=new FileReader(file);   //reads the file
-            BufferedReader br=new BufferedReader(fr);  //creates a buffering character input stream
-            StringBuffer sb=new StringBuffer();    //constructs a string buffer with no characters
-            String line;
-            while((line=br.readLine())!=null)
-            {
-//                fileStrings.add(line);
-                sb.append(line);      //appends line to string buffer
-                sb.append("\n");     //line feed
-            }
-            fr.close();    //closes the stream and release the resources
-            System.out.println("Contents of File: ");
-            System.out.println(sb.toString());   //returns a string that textually represents the object
-        }
-        catch(IOException e)
-        {
-            e.printStackTrace();
-        }
-
-
-        return readData;
-    }
     /***
      * This function used to tranform the data within a list to set
      */
@@ -272,174 +233,79 @@ public class arima {
     }
 
 
+    /**
+     * The input of this function taking the number of days for training
+     * and the hours as well.
+     *
+     * And this function including the predicting for the cpu and memory
+     *
+     * */
     public double[] predictProcess( int days, int hours){
 
-        int points = this.forecastSize * days;
-        ArrayList<Double> predictTrain_Mem= new ArrayList<>();
-        ArrayList<Double> predictTrain_CPU= new ArrayList<>();
-        ArrayList<Double> real_Mem= new ArrayList<>();
-        ArrayList<Double> real_CPU= new ArrayList<>();
-        int count = 1;
-        double total_Mem = 0;
-        double total_CPU = 0;
-        double Mem_hour = 0;
-        double CPU_hour = 0;
-
-        int length = 0;
         /**
-         * here get by x hours means for cpu and mem for training
+         * here get by x hours means for cpu and mem
          * */
-        for (int i = 0; i < this.MemByHour.size()-(24*days); i++) {//rule out the last day
-            for (int j = 0; j < this.MemByHour.get(i).size(); j++) {
-                total_Mem += this.MemByHour.get(i).get(j);
-                total_CPU += this.CPUByHour.get(i).get(j);
+        ArrayList<Double> cpuHours = new ArrayList<>();
+        ArrayList<Double> memHours = new ArrayList<>();
+        for (int i = 0; i <this.CPUByHour.size() ; i++) {
+            double cpuHour = 0;
+            double memHour = 0;
+            int len = this.CPUByHour.get(i).size(); // get the number of points in current hour
+            for (double d: this.CPUByHour.get(i)){
+                cpuHour+=d;
             }
-            length += this.MemByHour.get(i).size();;
-            if(count < hours){
-                count+=1;
+            for (double dd: this.MemByHour.get(i)){
+                memHour+=dd;
             }
-            else{
-                if(length==0) length =1;
-
-                Mem_hour = total_Mem/length;
-                CPU_hour = total_CPU/length;
-                predictTrain_Mem.add(Mem_hour);
-                predictTrain_CPU.add(CPU_hour);
-                length = 0;
-                total_Mem = 0;
-                total_CPU = 0;
-                count =1;
-            }
-
+            if(len==0) len =1;
+            cpuHour /= len;
+            memHour /=len;
+            cpuHours.add(cpuHour);
+            memHours.add(memHour);
         }
-        count =1;
-        length = 0;
-        total_CPU = 0;
-        total_Mem =0;
-
-        /**
-         * here get by x hours means for cpu and mem for testing
-         * */
-//        for(int i=(24*days); i < this.MemByHour.size(); i++){
-        for(int i = 0; i < this.MemByHour.size(); i++){
-
-                for (int j = 0; j < this.MemByHour.get(i).size(); j++) {
-                total_Mem += this.MemByHour.get(i).get(j);
-                total_CPU += this.CPUByHour.get(i).get(j);
-            }
-            length += this.MemByHour.get(i).size(); // the length of the current hour
-            if(count < hours){
-                count+=1;
-            }
-            else{
-                if(length==0) length =1;
-                Mem_hour = total_Mem/length;
-                CPU_hour = total_CPU/length;
-                real_Mem.add(Mem_hour);
-                real_CPU.add(CPU_hour);
-                total_Mem = 0;
-                total_CPU = 0;
-                length = 0;;
-                count =1;
-            }
-
-        }
-//
-        int minDay = (int)this.minDay;
-        int maxDay = (int)this.maxDay;
-        int counter =0;
-        double[] predictTrain_CPUSet = listToSet(predictTrain_CPU);
-        double[] predictTrain_MemSet = listToSet(predictTrain_Mem);
-        double[] real_CPUSet = listToSet(real_CPU);
-        double[] real_MemSet = listToSet(real_Mem);
-
-        // here we store all the result from the prediction
-        List<ArrayList<Double>> allPredictedMem = new ArrayList<>();
-        List<ArrayList<Double>> allPredictedCPU = new ArrayList<>();
 
         ArrayList<double[]> predicted_CPU = new ArrayList<>();
         ArrayList<double[]> predicted_Mem = new ArrayList<>();
-        for(int i =0; i < 1; i++){
-            double[] t = new double[1];
-            t[0] = real_Mem.get(i);
-            predicted_CPU.add(t);
-        }
-        double[] t = new double[1];
-        t[0] = real_Mem.get(0);
-//        predicted_CPU.add(t);
-//        predicted_CPU.add()
-        int takenNum = days *24 / hours; // this variable is used to track how many points taken to predict for the next days
-        // TODO need to get the predict value and RMSE over different settings
-        int counter10hour = 0;
-        int windows_ = 10;
-        for(int i= 0; i < real_CPU.size()-10; i++){
-            double[] temp = new double[windows_];
-            temp[0] = real_Mem.get(i);
-            temp[1] = real_Mem.get(i+1);
-            temp[2] = real_Mem.get(i+2);
-            temp[3] = real_Mem.get(i+3);
-            temp[4] = real_Mem.get(i+4);
-            temp[5] = real_Mem.get(i+5);
-            temp[6] = real_Mem.get(i+6);
-            temp[7] = real_Mem.get(i+7);
-            temp[8] = real_Mem.get(i+8);
-            temp[9] = real_Mem.get(i+9);
 
-            ForecastResult modelCPU = buildModel(temp);
+
+        int windows_ = hours;
+        // we first add the points we are not using for prediction to the predicted list
+        for (int i = 0; i < windows_; i++) {
+            double[] temp_cpu = new double[]{cpuHours.get(i)};
+            predicted_CPU.add(temp_cpu);
+            double[] temp_mem = new double[]{memHours.get(i)};
+            predicted_Mem.add(temp_mem);
+
+        }
+
+
+        for(int i= 0; i < cpuHours.size()-windows_; i++){
+            double[] temp_Mem = new double[windows_];
+            double[] temp_CPU= new double[windows_];
+            for (int j = 0; j <windows_; j++) {
+                temp_Mem[j] = memHours.get(i+j);
+                temp_CPU[j] = cpuHours.get(i+j);
+            }
+            ForecastResult modelMem = buildModel(temp_Mem);
+            ForecastResult modelCPU = buildModel(temp_CPU);
             predicted_CPU.add(modelCPU.getForecast());
+            predicted_Mem.add(modelMem.getForecast());
         }
 
+        String memPredictedPath = "C:\\Users\\vini\\Desktop\\1411\\Arima\\Atom.lnk\\memPrediction.csv";
+        String CPUPredictedPath = "C:\\Users\\vini\\Desktop\\1411\\Arima\\Atom.lnk\\CPUPrediction.csv";
 
-//        for (int i = 0; i < predictTrain_CPUSet.length; i+=takenNum) {
-//            if ((counter+takenNum)>= predictTrain_CPUSet.length) break;
-//            double[] temp  = Arrays.copyOfRange(predictTrain_CPUSet, counter, counter+takenNum);
-//            ForecastResult modelCPU = buildModel(temp);
-//            double[] predicted_trainCPU = modelCPU.getForecast();
-//            double[] temp1  = Arrays.copyOfRange(predictTrain_CPUSet, counter, counter+takenNum);
-//            ForecastResult modelMem = buildModel(temp1);
-//            double[] predicted_trainMem = modelCPU.getForecast();
-////            for (int j = 0; j < predicted_trainCPU.length; j++) {
-////                predicted_trainCPU[j] = Math.abs(predicted_trainCPU[j]);
-////                predicted_trainMem[j] = Math.abs(predicted_trainMem[j]);
-////
-////            }
-//            predicted_CPU.add(predicted_trainCPU);
-//            predicted_Mem.add(predicted_trainMem);
-//            counter+= takenNum;
-//
-//        }
 
-        int count_rmse = 0;
-        double rmseTotalCPU = 0;
-        double rmseTotalMem = 0;
-        double rmseCPU = 0;
-        double rmseMem = 0;
-        counter = 0;
-//        for (int i = 0; i < real_CPU.size()/takenNum-1; i++) {
-//            double[] tempCPU = Arrays.copyOfRange(real_CPUSet,counter,counter+takenNum);
-//            double[] predicted_CPU_one = predicted_CPU.get(i);
-//            double[] tempMem = Arrays.copyOfRange(real_MemSet,counter,counter+takenNum);
-//            double[] predicted_Mem_one = predicted_Mem.get(i);
-//            count_rmse+=1;
-//            rmseTotalCPU+= calculateRmse(tempCPU,predicted_CPU_one);
-//            rmseTotalMem+= calculateRmse(tempMem,predicted_Mem_one);
-//        }
+        writer(predicted_Mem,memHours, memPredictedPath);
+        writer(predicted_CPU,cpuHours, CPUPredictedPath);
 
-//        calculateRmse()
-        String memPredictedPath = "/home/yuyong1/Desktop/Arima/Atom.lnk/MemPrediction.csv";
-        String CPUPredictedPath = "/home/yuyong1/Desktop/Arima/Atom.lnk/CPUPrediction.csv";
-
-//
-//        writer(predicted_Mem,real_Mem, memPredictedPath);
-        writer(predicted_CPU,real_CPU, CPUPredictedPath);
-
-//        rmseCPU = rmseTotalCPU/count_rmse;
-//        rmseMem = rmseTotalMem/count_rmse;
-//        double[] result = new double[]{rmseCPU, rmseMem};
         double[] result = new double[]{0, 0};
 
         return result;
     }
+    /**
+     * The writer to write predicted result to a file nothing much
+     * */
     public void writer(ArrayList<double[]> predicted, ArrayList<Double> real, String path){
         ArrayList<Double> predictedList = new ArrayList<>();
 
@@ -456,14 +322,8 @@ public class arima {
                 String toWrite = "";
 //                toWrite = predictedList.get(i).toString() + ", "  + real.get(i).toString() + "\n";
                 toWrite = predictedList.get(i).toString() + ", "  + real.get(i).toString() + "\n";
-
-
                 myWriter.write(toWrite);
-
             }
-
-
-
             myWriter.close();
             System.out.println("Successfully wrote to the file.");
         } catch (IOException e) {
