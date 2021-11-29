@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.FormatterClosedException;
 import java.util.List;
 
-
+// TODO take the nature log for the data
 public class arima {
     // Prepare input timeseries data.
     // here we simply changed the dataArray to a double[] hold
@@ -283,13 +283,16 @@ public class arima {
             double[] temp_Mem = new double[windows_];
             double[] temp_CPU= new double[windows_];
             for (int j = 0; j <windows_; j++) {
-                temp_Mem[j] = memHours.get(i+j);
-                temp_CPU[j] = cpuHours.get(i+j);
+                temp_Mem[j] = Math.log(memHours.get(i+j)+0.1);
+                temp_CPU[j] = Math.log(cpuHours.get(i+j)+0.1);
             }
             ForecastResult modelMem = buildModel(temp_Mem);
             ForecastResult modelCPU = buildModel(temp_CPU);
-            predicted_CPU.add(modelCPU.getForecast());
-            predicted_Mem.add(modelMem.getForecast());
+            double[] preCPU = new double[]{Math.exp(modelCPU.getForecast()[0])-0.1};
+            predicted_CPU.add(preCPU);
+            double[] preMem= new double[]{Math.exp(modelMem.getForecast()[0])-0.1};
+            predicted_CPU.add(preCPU);
+            predicted_Mem.add(preMem);
         }
 
         String memPredictedPath = "C:\\Users\\vini\\Desktop\\1411\\Arima\\Atom.lnk\\memPrediction.csv";
